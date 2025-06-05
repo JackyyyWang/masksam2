@@ -23,6 +23,30 @@ from conf import settings
 from func_3d.utils import get_network, set_log_dir, create_logger
 from func_3d.dataset import get_dataloader
 from multimodal_utils import modify_model_for_multimodal
+from multi_channel_block import MultiChannelDiffusionBlock
+from types import SimpleNamespace
+import torch.nn.functional as F
+
+from diffusion_fusion import LightweightDiffusionFusion
+
+
+def train_with_diffusion(model, diffusion, optimizer, data_loader):
+    for batch in data_loader:
+        x_multimodal = batch['image'].to(dtype=torch.float32, device=next(model.parameters()).device)
+        B = x_multimodal.shape[0]
+        t = torch.randint(0, diffusion.timesteps, (B,), device=x_multimodal.device)
+        x_noisy = diffusion.add_noise(x_multimodal, t)
+        x_pred = diffusion.denoise(x_noisy, t)
+        L_recon = F.mse_loss(x_pred, x_multimodal)
+        struct_losses = diffusion.structure_preservation_loss(x_multimodal, x_pred)
+        L_struct = struct_losses['total']
+        fused = diffusion.fast_sample(x_multimodal)
+        pred_masks = model(fused)['masks'] if isinstance(model(fused), dict) else model(fused)
+        L_seg = pred_masks.mean()  # placeholder since segmentation_loss is external
+        loss = L_seg + 0.1 * L_recon + 0.1 * L_struct
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
 
 def main():
@@ -34,6 +58,12 @@ def main():
 
     # Modify model for 3-channel input (using your existing utility)
     # net = modify_model_for_multimodal(net, in_channels=3)
+
+    # Attach diffusion-based fusion block for multimodal input
+    diff_cfg = SimpleNamespace(num_modalities=3)
+    fusion_block = MultiChannelDiffusionBlock(diff_cfg).to(device=GPUdevice)
+    if hasattr(net, 'image_encoder'):
+        net.image_encoder.fusion_block = fusion_block
 
     net.to(dtype=torch.bfloat16)
 
@@ -95,6 +125,10 @@ def main():
     # Get data loaders - ensure the dataloader returns the mask prompt
     train_loader, test_loader = get_dataloader(args)
 
+    # Optimizer for diffusion fusion
+    diffusion = fusion_block.diffusion
+    optimizer_diff = optim.Adam(diffusion.parameters(), lr=1e-4)
+
     # Setup checkpoint path and tensorboard
     checkpoint_path = os.path.join(settings.CHECKPOINT_PATH, args.net, settings.TIME_NOW)
     if not os.path.exists(settings.LOG_DIR):
@@ -116,6 +150,9 @@ def main():
         # Train for one epoch
         net.train()
         time_start = time.time()
+
+        # Stage 1: train diffusion fusion module
+        train_with_diffusion(net, diffusion, optimizer_diff, train_loader)
 
         # Using mask prompting
         loss, prompt_loss, non_prompt_loss = function.train_sam_with_mask_prompt(

@@ -7,6 +7,8 @@ Utilities for handling multimodal 5-channel input in SAM2
 import torch
 import numpy as np
 
+from diffusion_utils import diffusion_sam_transform
+
 
 def modify_model_for_multimodal(model, in_channels=3):  # Changed default from 5 to 3
     """
@@ -114,3 +116,12 @@ def normalize_multimodal_volume(volume_data, normalize_per_channel=True):
             return (volume_data - data_min) / (data_max - data_min)
         else:
             return volume_data
+
+
+def samify_volume_with_diffusion(volume_tensor, steps=10, model=None, ddim=False):
+    """Convert a 3-channel volume to SAM-compatible representation using diffusion."""
+    if not isinstance(volume_tensor, torch.Tensor):
+        volume_tensor = torch.tensor(volume_tensor, dtype=torch.float32)
+    if volume_tensor.dim() == 3:
+        volume_tensor = volume_tensor.unsqueeze(0)
+    return diffusion_sam_transform(volume_tensor, steps=steps, model=model, ddim=ddim)

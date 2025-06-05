@@ -10,6 +10,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from multi_channel_block import MultiChannelDiffusionBlock
+
 
 class ImageEncoder(nn.Module):
     def __init__(
@@ -17,16 +19,20 @@ class ImageEncoder(nn.Module):
         trunk: nn.Module,
         neck: nn.Module,
         scalp: int = 0,
+        fusion_block: Optional[nn.Module] = None,
     ):
         super().__init__()
         self.trunk = trunk
         self.neck = neck
         self.scalp = scalp
+        self.fusion_block = fusion_block if fusion_block is not None else nn.Identity()
         assert (
             self.trunk.channel_list == self.neck.backbone_channel_list
         ), f"Channel dims of trunk and neck do not match. Trunk: {self.trunk.channel_list}, neck: {self.neck.backbone_channel_list}"
 
     def forward(self, sample: torch.Tensor):
+        # Apply multimodal fusion if provided
+        sample = self.fusion_block(sample)
         # Forward through backbone
         features, pos = self.neck(self.trunk(sample))
         if self.scalp > 0:
