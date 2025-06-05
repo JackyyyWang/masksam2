@@ -320,4 +320,6 @@ class Conv2d(nn.Conv2d, LoRALayer):
                 self.weight + (self.lora_B @ self.lora_A).view(self.weight.shape) * self.scaling,
                 self.bias, self.stride, self.padding, self.dilation, self.groups
             )
+
         return nn.Conv2d.forward(self, x)
+

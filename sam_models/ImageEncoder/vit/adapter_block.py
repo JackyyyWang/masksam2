@@ -310,4 +310,4 @@ class MLPBlock(nn.Module):
         self.act = act()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.lin2(self.act(self.lin1(x)))
+

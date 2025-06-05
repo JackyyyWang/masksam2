@@ -46,4 +46,4 @@ def lora_state_dict(model: nn.Module, bias: str = 'none') -> Dict[str, torch.Ten
                     to_return[bias_name] = my_state_dict[bias_name]
         return to_return
     else:
-        raise NotImplementedError
+
