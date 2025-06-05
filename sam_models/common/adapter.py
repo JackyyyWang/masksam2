@@ -20,4 +20,3 @@ class Adapter(nn.Module):
             x = x + xs
         else:
             x = xs
-        return x

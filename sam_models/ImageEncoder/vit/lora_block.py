@@ -274,4 +274,3 @@ def add_decomposed_rel_pos(
         attn.view(B, q_h, q_w, k_h, k_w) + rel_h[:, :, :, :, None] + rel_w[:, :, :, None, :]
     ).view(B, q_h * q_w, k_h * k_w)
 
-    return attn

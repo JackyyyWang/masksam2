@@ -327,4 +327,3 @@ class MultiModalFusion(nn.Module):
         # Average the outputs from all modalities
         final_output = sum(output_features) / len(output_features)
 
-        return final_output
