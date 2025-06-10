@@ -1,0 +1,48 @@
+{
+    "original_dataset_size": 1491,
+    "enhanced_dataset_size": 1620,
+    "expansion_factor": 1.0865191146881288,
+    "files_with_multiple_components": 149,
+    "multi_component_file_examples": [
+        {
+            "filename": "prostate_2236.npz",
+            "component_count": 2
+        },
+        {
+            "filename": "prostate_1178.npz",
+            "component_count": 2
+        },
+        {
+            "filename": "prostate_2799.npz",
+            "component_count": 2
+        },
+        {
+            "filename": "prostate_0670.npz",
+            "component_count": 2
+        },
+        {
+            "filename": "prostate_1764.npz",
+            "component_count": 2
+        },
+        {
+            "filename": "prostate_0024.npz",
+            "component_count": 2
+        },
+        {
+            "filename": "prostate_1175.npz",
+            "component_count": 2
+        },
+        {
+            "filename": "prostate_3153.npz",
+            "component_count": 2
+        },
+        {
+            "filename": "prostate_2622.npz",
+            "component_count": 2
+        },
+        {
+            "filename": "prostate_1809.npz",
+            "component_count": 2
+        }
+    ]
+}
