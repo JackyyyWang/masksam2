@@ -420,6 +420,27 @@ class Prostate3DDatasetWithConnectedComponents(Dataset):
     def __len__(self):
         return len(self.enhanced_data_list)
 
+    def _extract_slice_spacings(self, metadata):
+        """Extract physical spacing information between slices."""
+        if metadata is None:
+            metadata = {}
+
+        if 'slice_locations' in metadata:
+            locations = metadata['slice_locations']
+            spacings = torch.diff(torch.tensor(locations, dtype=torch.float32))
+        else:
+            # Default spacing if metadata is not available
+            spacings = torch.ones(self.video_length - 1, dtype=torch.float32) * 3.5
+
+        spacings_norm = spacings / 10.0
+
+        return {
+            'spacings_mm': spacings,
+            'spacings_norm': spacings_norm,
+            'max_spacing': spacings.max(),
+            'mean_spacing': spacings.mean(),
+        }
+
     def __getitem__(self, index):
         """Get a 3D volume with a specific component and process it for training"""
         # Get the enhanced data entry
@@ -430,6 +451,11 @@ class Prostate3DDatasetWithConnectedComponents(Dataset):
         # Load npz file
         npz_path = os.path.join(self.data_path, filename)
         npz_data = np.load(npz_path)
+
+        metadata = {}
+        if 'slice_locations' in npz_data:
+            metadata['slice_locations'] = npz_data['slice_locations']
+        spacing_info = self._extract_slice_spacings(metadata)
 
         # Extract data and segmentation
         volume_data = npz_data['data']  # 5-channel data
@@ -643,7 +669,8 @@ class Prostate3DDatasetWithConnectedComponents(Dataset):
                 'bbox': bbox_dict,
                 'image_meta_dict': image_meta_dict,
                 'prompt_slice_idx': prompt_frame_idx,
-                'gland_bboxes': gland_bboxes_aligned
+                'gland_bboxes': gland_bboxes_aligned,
+                'spacing_info': spacing_info
             }
         elif self.prompt == 'click':
             return {
@@ -653,7 +680,8 @@ class Prostate3DDatasetWithConnectedComponents(Dataset):
                 'pt': pt_dict,
                 'image_meta_dict': image_meta_dict,
                 'prompt_slice_idx': prompt_frame_idx,
-                'gland_bboxes': gland_bboxes_aligned
+                'gland_bboxes': gland_bboxes_aligned,
+                'spacing_info': spacing_info
             }
         elif self.prompt == 'mask':
             return {
@@ -662,7 +690,8 @@ class Prostate3DDatasetWithConnectedComponents(Dataset):
                 'prompt_masks': prompt_masks,
                 'image_meta_dict': image_meta_dict,
                 'prompt_slice_idx': prompt_frame_idx,
-                'gland_bboxes': gland_bboxes_aligned
+                'gland_bboxes': gland_bboxes_aligned,
+                'spacing_info': spacing_info
             }
 
     # Add to the dataset class
