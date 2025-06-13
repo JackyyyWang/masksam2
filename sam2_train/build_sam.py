@@ -19,6 +19,7 @@ def build_sam2(
     mode="eval",
     hydra_overrides_extra=[],
     apply_postprocessing=True,
+    use_lora: bool = False,
 ):
 
     if apply_postprocessing:
@@ -31,6 +32,9 @@ def build_sam2(
         ]
     # Read config and init model
     cfg = compose(config_name=config_file, overrides=hydra_overrides_extra)
+    if use_lora:
+        cfg.model.image_encoder.use_lora = True
+        cfg.model.image_encoder.trunk.use_lora = True
     OmegaConf.resolve(cfg)
     model = instantiate(cfg.model, _recursive_=True)
     _load_checkpoint(model, ckpt_path)
@@ -47,6 +51,7 @@ def build_sam2_video_predictor(
     mode="eval",
     hydra_overrides_extra=[],
     apply_postprocessing=True,
+    use_lora: bool = False,
 ):
     hydra_overrides = [
         "++model._target_=sam2_train.sam2_video_predictor.SAM2VideoPredictor",
@@ -67,6 +72,9 @@ def build_sam2_video_predictor(
 
     # Read config and init model
     cfg = compose(config_name=config_file, overrides=hydra_overrides)
+    if use_lora:
+        cfg.model.image_encoder.use_lora = True
+        cfg.model.image_encoder.trunk.use_lora = True
     OmegaConf.resolve(cfg)
     model = instantiate(cfg.model, _recursive_=True)
     _load_checkpoint(model, ckpt_path)

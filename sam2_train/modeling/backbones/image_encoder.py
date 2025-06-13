@@ -17,6 +17,7 @@ class ImageEncoder(nn.Module):
         trunk: nn.Module,
         neck: nn.Module,
         scalp: int = 0,
+        use_lora: bool = False,
     ):
         super().__init__()
         self.trunk = trunk

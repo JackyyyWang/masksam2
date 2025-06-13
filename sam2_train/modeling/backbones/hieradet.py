@@ -18,6 +18,7 @@ from sam2_train.modeling.backbones.utils import (
 )
 
 from sam2_train.modeling.sam2_utils import DropPath, MLP
+from .hiera_lora_block import LoraAttention, LoraMLP
 
 
 def do_pool(x: torch.Tensor, pool: nn.Module, norm: nn.Module = None) -> torch.Tensor:
@@ -95,6 +96,9 @@ class MultiScaleBlock(nn.Module):
         q_stride: Tuple[int, int] = None,
         act_layer: nn.Module = nn.GELU,
         window_size: int = 0,
+        use_lora: bool = False,
+        r: int = 4,
+        lora_alpha: int = 1,
     ):
         super().__init__()
 
@@ -113,22 +117,42 @@ class MultiScaleBlock(nn.Module):
                 kernel_size=q_stride, stride=q_stride, ceil_mode=False
             )
 
-        self.attn = MultiScaleAttention(
-            dim,
-            dim_out,
-            num_heads=num_heads,
-            q_pool=self.pool,
-        )
+        if use_lora:
+            self.attn = LoraAttention(
+                dim,
+                dim_out,
+                num_heads=num_heads,
+                q_pool=self.pool,
+                r=r,
+                lora_alpha=lora_alpha,
+            )
+        else:
+            self.attn = MultiScaleAttention(
+                dim,
+                dim_out,
+                num_heads=num_heads,
+                q_pool=self.pool,
+            )
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
 
         self.norm2 = norm_layer(dim_out)
-        self.mlp = MLP(
-            dim_out,
-            int(dim_out * mlp_ratio),
-            dim_out,
-            num_layers=2,
-            activation=act_layer,
-        )
+        if use_lora:
+            self.mlp = LoraMLP(
+                in_features=dim_out,
+                hidden_features=int(dim_out * mlp_ratio),
+                out_features=dim_out,
+                act_layer=act_layer,
+                r=r,
+                lora_alpha=lora_alpha,
+            )
+        else:
+            self.mlp = MLP(
+                dim_out,
+                int(dim_out * mlp_ratio),
+                dim_out,
+                num_layers=2,
+                activation=act_layer,
+            )
 
         if dim != dim_out:
             self.proj = nn.Linear(dim, dim_out)
@@ -198,6 +222,9 @@ class Hiera(nn.Module):
             20,
         ),
         return_interm_layers=True,  # return feats from every stage
+        use_lora: bool = False,
+        r: int = 4,
+        lora_alpha: int = 1,
     ):
         super().__init__()
 
@@ -255,6 +282,9 @@ class Hiera(nn.Module):
                 drop_path=dpr[i],
                 q_stride=self.q_stride if i in self.q_pool_blocks else None,
                 window_size=window_size,
+                use_lora=use_lora,
+                r=r,
+                lora_alpha=lora_alpha,
             )
 
             embed_dim = dim_out
