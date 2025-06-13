@@ -19,6 +19,7 @@ import cfg
 from func_3d import function_gland_boxes as function
 from conf import settings
 from func_3d.utils import get_network, set_log_dir, create_logger
+from sam_models.common.loralib.utils import mark_only_lora_as_trainable
 from func_3d.dataset import get_dataloader
 from types import SimpleNamespace
 import torch.nn.functional as F
@@ -29,7 +30,15 @@ def main():
 
     # Setup device and model
     GPUdevice = torch.device('cuda', args.gpu_device)
-    net = get_network(args, args.net, use_gpu=args.gpu, gpu_device=GPUdevice, distribution=args.distributed)
+    net = get_network(
+        args,
+        args.net,
+        use_gpu=args.gpu,
+        gpu_device=GPUdevice,
+        distribution=args.distributed,
+        use_lora=True,
+    )
+    mark_only_lora_as_trainable(net, bias='lora_only')
 
     # Modify model for 3-channel input (using your existing utility)
     # net = modify_model_for_multimodal(net, in_channels=3)
@@ -55,11 +64,10 @@ def main():
             # Try to load directly with strict=False to skip mismatched layers
             net.load_state_dict(weights, strict=False)
 
-    # Setup optimizers for different layers
-    sam_layers = (
-            []
-            + list(net.sam_mask_decoder.parameters())
-    )
+    # Setup optimizers for LoRA parameters
+    lora_params = [p for n, p in net.named_parameters() if "lora_" in n and p.requires_grad]
+    optimizer1 = optim.Adam(lora_params, lr=1e-4, betas=(0.9, 0.999))
+
     mem_layers = (
             []
             + list(net.obj_ptr_proj.parameters())
@@ -67,11 +75,6 @@ def main():
             + list(net.memory_attention.parameters())
             + list(net.mask_downsample.parameters())
     )
-
-    if len(sam_layers) == 0:
-        optimizer1 = None
-    else:
-        optimizer1 = optim.Adam(sam_layers, lr=1e-4, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
 
     if len(mem_layers) == 0:
         optimizer2 = None
